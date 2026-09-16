@@ -20,3 +20,5 @@ docs/*.html
 .vscode/
 .idea/
 *.swp
+DESIGN.md
+TODO.md
