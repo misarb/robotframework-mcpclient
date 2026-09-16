@@ -40,10 +40,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/robotframework-mcpclient/robotframework-mcpclient"
-Documentation = "https://github.com/robotframework-mcpclient/robotframework-mcpclient#readme"
-Issues = "https://github.com/robotframework-mcpclient/robotframework-mcpclient/issues"
-Source = "https://github.com/robotframework-mcpclient/robotframework-mcpclient"
+Homepage = "https://github.com/misarb/robotframework-mcpclient"
+Documentation = "https://github.com/misarb/robotframework-mcpclient#readme"
+Issues = "https://github.com/misarb/robotframework-mcpclient/issues"
+Source = "https://github.com/misarb/robotframework-mcpclient"
 
 [tool.hatch.version]
 path = "src/MCPClientLibrary/version.py"

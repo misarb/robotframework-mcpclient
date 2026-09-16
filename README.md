@@ -37,8 +37,21 @@ Unknown City Is Reported As A Tool Error
 pip install robotframework-mcpclient
 ```
 
-Requires Python 3.10 or newer. Installing the library brings in Robot Framework
-and the MCP Python SDK.
+**Requirements:** Python 3.10+, Robot Framework 5.0+, mcp 1.0+
+
+**Tested with:** Python 3.10–3.13, Robot Framework 7.5, mcp 2.2.0
+
+## Quick test
+
+After installing, verify it works:
+
+```bash
+python -m robot --version
+# Robot Framework 7.5 (Python 3.12.3 on linux)
+
+python -c "from MCPClientLibrary import MCPClientLibrary; print('✓ Library imported')"
+# ✓ Library imported
+```
 
 ## Connecting to a server
 
@@ -195,7 +208,9 @@ truncated. Run with `--loglevel DEBUG` for the full detail.
 
 ## Keyword documentation
 
-Generate the full keyword reference with Libdoc:
+View the full keyword reference: [MCPClientLibrary.html](docs/MCPClientLibrary.html)
+
+Or generate it locally:
 
 ```bash
 python -m robot.libdoc MCPClientLibrary docs/MCPClientLibrary.html
