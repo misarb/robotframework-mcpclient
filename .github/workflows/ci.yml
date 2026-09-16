@@ -35,7 +35,9 @@ jobs:
         run: python -m pytest tests/ -v
 
       - name: Acceptance tests
-        run: python -m robot --variable INTERPRETER:python --outputdir results atest/
+        run: |
+          PYTHON_PATH=$(python -c "import sys; print(sys.executable)")
+          python -m robot --variable INTERPRETER:$PYTHON_PATH --outputdir results atest/
 
       - name: Upload Robot results
         if: always()
