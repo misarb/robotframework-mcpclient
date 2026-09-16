@@ -1,6 +1,7 @@
 """Unit tests for the async-to-sync bridge."""
 
 import asyncio
+import concurrent.futures
 
 import pytest
 
@@ -48,6 +49,32 @@ def test_the_loop_survives_a_timeout(bridge):
     with pytest.raises(MCPTimeoutError):
         bridge.run(slow(), timeout=0.1)
     assert bridge.run(answer()) == "still working"
+
+
+def test_concurrent_futures_timeout_is_wrapped_as_mcp_timeout_error(bridge, monkeypatch):
+    class FakeFuture:
+        cancelled = False
+
+        def result(self, timeout=None):
+            raise concurrent.futures.TimeoutError
+
+        def cancel(self):
+            self.cancelled = True
+
+    fake_future = FakeFuture()
+
+    def fake_run_coroutine_threadsafe(coro, loop):
+        coro.close()
+        return fake_future
+
+    monkeypatch.setattr(
+        "MCPClientLibrary._bridge.asyncio.run_coroutine_threadsafe", fake_run_coroutine_threadsafe
+    )
+
+    with pytest.raises(MCPTimeoutError):
+        bridge.run(asyncio.sleep(0), timeout=0.1)
+
+    assert fake_future.cancelled is True
 
 
 def test_state_persists_across_calls_on_the_same_loop(bridge):

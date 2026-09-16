@@ -7,6 +7,7 @@ its whole lifetime, and keywords hop into it with ``run_coroutine_threadsafe``.
 """
 
 import asyncio
+import concurrent.futures
 import threading
 
 from .errors import MCPLibraryError, MCPTimeoutError
@@ -53,7 +54,7 @@ class AsyncBridge:
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)
         try:
             return future.result(timeout=timeout)
-        except (TimeoutError, asyncio.TimeoutError):
+        except (concurrent.futures.TimeoutError, TimeoutError, asyncio.TimeoutError):
             future.cancel()
             raise MCPTimeoutError(
                 f"The MCP server did not respond within {timeout} seconds."
