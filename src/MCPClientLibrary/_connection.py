@@ -1,0 +1,149 @@
+"""One MCP session, held open across keywords.
+
+The session lives in a single task on the bridge loop: it opens the transport
+and the client session, runs the handshake, then waits on a shutdown event so
+the context managers stay open. Keywords reach it through :meth:`call`.
+"""
+
+import asyncio
+import tempfile
+from contextlib import asynccontextmanager
+
+from mcp import ClientSession, StdioServerParameters, stdio_client
+
+from .errors import MCPConnectionError, MCPLibraryError
+
+STDERR_TAIL_CHARS = 2000
+
+
+class MCPConnection:
+    """A live connection to one MCP server."""
+
+    def __init__(self, bridge, transport="stdio", **transport_options):
+        self._bridge = bridge
+        self._transport = transport
+        self._transport_options = transport_options
+        self._session = None
+        self._shutdown = None
+        self._ready = None
+        self._closed = None
+        self._failure = None
+        self._errlog = None
+        self._stderr_tail = ""
+        self.alias = None
+        self.server_info = None
+        self.capabilities = None
+
+    # -- transport seam ---------------------------------------------------
+    # Every transport returns the same (read, write) stream pair, so adding
+    # streamable HTTP later touches this method and nothing else.
+
+    @asynccontextmanager
+    async def _open_transport(self):
+        if self._transport == "stdio":
+            params = StdioServerParameters(**self._transport_options)
+            # The server's stderr goes to a temporary file rather than to
+            # sys.stderr: Robot replaces sys.stderr with a stream that has no
+            # file descriptor, which the subprocess cannot inherit. Capturing
+            # it also means a server that dies during startup can explain why.
+            self._errlog = tempfile.TemporaryFile(mode="w+", prefix="mcp-server-stderr-")
+            try:
+                async with stdio_client(params, errlog=self._errlog) as streams:
+                    yield streams
+            finally:
+                errlog, self._errlog = self._errlog, None
+                self._stderr_tail = self._read_stderr(errlog)
+                errlog.close()
+        else:
+            raise MCPLibraryError(
+                f"Unsupported transport '{self._transport}'. This version supports 'stdio'."
+            )
+
+    @staticmethod
+    def _read_stderr(errlog):
+        """The tail of whatever the server wrote to stderr, for error messages."""
+        try:
+            errlog.seek(0)
+            text = errlog.read().strip()
+        except (OSError, ValueError):
+            return ""
+        return text[-STDERR_TAIL_CHARS:] if len(text) > STDERR_TAIL_CHARS else text
+
+    def _describe_failure(self, failure):
+        """A failure message that includes the server's own stderr, if any."""
+        message = f"Could not connect to the MCP server: {failure}"
+        if self._stderr_tail:
+            message = f"{message}\n\nThe server wrote to stderr:\n{self._stderr_tail}"
+        return message
+
+    # -- lifecycle --------------------------------------------------------
+
+    def open(self, timeout=30):
+        """Start the server and complete the handshake. Blocks until ready."""
+        self._bridge.run(self._start(), timeout=timeout)
+        if self._failure is not None:
+            failure = self._failure
+            self._failure = None
+            raise MCPConnectionError(self._describe_failure(failure)) from failure
+        if self._session is None:
+            raise MCPConnectionError(
+                self._describe_failure("it closed the connection during the handshake")
+            )
+        return self
+
+    async def _start(self):
+        self._shutdown = asyncio.Event()
+        self._ready = asyncio.Event()
+        self._closed = asyncio.Event()
+        # Hold the session in its own task so that open() can return as soon
+        # as the handshake is done while the context managers stay entered.
+        self._task = asyncio.ensure_future(self._hold())
+        await self._ready.wait()
+
+    async def _hold(self):
+        try:
+            async with self._open_transport() as (read, write):
+                async with ClientSession(read, write) as session:
+                    result = await session.initialize()
+                    self._session = session
+                    self.server_info = result.server_info
+                    self.capabilities = result.capabilities
+                    self._ready.set()
+                    await self._shutdown.wait()
+        except Exception as err:
+            self._failure = err
+        finally:
+            self._session = None
+            self._ready.set()
+            self._closed.set()
+
+    def close(self, timeout=10):
+        """Signal shutdown and wait for the transport to tear down."""
+        if self._shutdown is None or self._closed is None:
+            return
+        try:
+            self._bridge.run(self._stop(), timeout=timeout)
+        except MCPLibraryError:
+            # A server that refuses to exit must not fail the teardown; the
+            # subprocess is killed by the SDK's transport cleanup regardless.
+            pass
+        finally:
+            self._session = None
+
+    async def _stop(self):
+        self._shutdown.set()
+        await self._closed.wait()
+
+    @property
+    def is_open(self):
+        return self._session is not None
+
+    # -- use --------------------------------------------------------------
+
+    def call(self, make_coro, timeout=30):
+        """Run ``make_coro(session)`` on the loop thread and return its result."""
+        if self._session is None:
+            raise MCPConnectionError(
+                "The MCP session is not open. Use 'Connect To MCP Server' first."
+            )
+        return self._bridge.run(make_coro(self._session), timeout=timeout)

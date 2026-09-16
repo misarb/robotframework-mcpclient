@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Test output
+results/
+.pytest_cache/
+.ruff_cache/
+
+# Generated keyword documentation
+docs/*.html
+
+# Editors
+.vscode/
+.idea/
+*.swp

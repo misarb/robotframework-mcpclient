@@ -1,0 +1,69 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "robotframework-mcpclient"
+dynamic = ["version"]
+description = "Robot Framework library for testing MCP (Model Context Protocol) servers"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+keywords = ["robotframework", "testing", "mcp", "model-context-protocol", "llm", "agent", "qa"]
+authors = [{ name = "Lahcen Boulbalah", email = "boulbalah.lahcen@gmail.com" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Robot Framework",
+    "Framework :: Robot Framework :: Library",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "robotframework>=5.0",
+    "mcp>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "build",
+    "twine",
+    "ruff",
+]
+
+[project.urls]
+Homepage = "https://github.com/robotframework-mcpclient/robotframework-mcpclient"
+Documentation = "https://github.com/robotframework-mcpclient/robotframework-mcpclient#readme"
+Issues = "https://github.com/robotframework-mcpclient/robotframework-mcpclient/issues"
+Source = "https://github.com/robotframework-mcpclient/robotframework-mcpclient"
+
+[tool.hatch.version]
+path = "src/MCPClientLibrary/version.py"
+pattern = "VERSION = \"(?P<version>[^\"]+)\""
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/MCPClientLibrary"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/", "tests/", "atest/", "README.md", "DESIGN.md", "CHANGELOG.md", "LICENSE"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Third-party pytest plugins installed system-wide (ROS ships one) can fail to
+# import and take the whole run down with them; the suite needs none of them.
+addopts = "-p no:cacheprovider"
