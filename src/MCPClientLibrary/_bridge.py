@@ -53,7 +53,7 @@ class AsyncBridge:
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)
         try:
             return future.result(timeout=timeout)
-        except TimeoutError:
+        except (TimeoutError, asyncio.TimeoutError):
             future.cancel()
             raise MCPTimeoutError(
                 f"The MCP server did not respond within {timeout} seconds."
