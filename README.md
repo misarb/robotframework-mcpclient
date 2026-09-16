@@ -208,7 +208,7 @@ truncated. Run with `--loglevel DEBUG` for the full detail.
 
 ## Keyword documentation
 
-View the full keyword reference: [MCPClientLibrary.html](docs/MCPClientLibrary.html)
+View the full keyword reference: [MCPClientLibrary.html](https://robotframework-mcpclient.readthedocs.io/_static/MCPClientLibrary.html)
 
 Or generate it locally:
 
