@@ -3,7 +3,9 @@ Keywords
 
 MCPClientLibrary exposes 44 keywords across five categories.
 
-Full reference: `MCPClientLibrary.html <MCPClientLibrary.html>`_
+Full reference: `MCPClientLibrary.html <_static/MCPClientLibrary.html>`_
+
+Below is a summary with common keywords. For complete details including all parameters and examples, see the full reference above.
 
 Connection Lifecycle
 --------------------
