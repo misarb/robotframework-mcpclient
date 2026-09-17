@@ -43,6 +43,11 @@ def input_schema(tool):
     return _attr(tool, "input_schema", "inputSchema")
 
 
+def output_schema(tool):
+    """The tool's JSON output schema, or None if it declares none."""
+    return _attr(tool, "output_schema", "outputSchema")
+
+
 def schema_required(tool):
     """The list of required field names in the tool's input schema."""
     schema = input_schema(tool) or {}

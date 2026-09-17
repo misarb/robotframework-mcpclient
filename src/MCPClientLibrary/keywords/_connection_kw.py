@@ -1,5 +1,7 @@
 """Keywords that start, switch, and stop MCP server connections."""
 
+import warnings
+
 from robot.api.deco import keyword
 
 from .._connection import MCPConnection
@@ -126,3 +128,64 @@ class ConnectionKeywords:
         connection = self._cache.current if self._cache.current_index else None
         if connection is None or not connection.is_open:
             raise AssertionError(msg or "No MCP server is connected.")
+
+    @keyword("Set Logging Level")
+    def set_logging_level(self, level, timeout=None):
+        """Asks the server to send log messages at ``level`` or more severe.
+
+        ``level`` is one of ``debug``, ``info``, ``notice``, ``warning``,
+        ``error``, ``critical``, ``alert``, ``emergency`` (least to most
+        severe), per the MCP logging levels. Messages the server sends
+        afterward are collected by `Get Server Log Messages`.
+
+        A server that does not declare the ``logging`` capability will reject
+        this with a protocol error — check `Get MCP Server Capabilities`
+        first if that's a possibility.
+
+        The MCP logging capability itself is deprecated in the spec (as of
+        2026-07-28, SEP-2577) though still widely implemented; the underlying
+        SDK call emits a deprecation warning, not an error, and this keyword
+        keeps working against any server that still supports it.
+
+        Example:
+        | Set Logging Level | debug |
+        | Call Tool | get_weather | city=Paris |
+        | ${logs}= | Get Server Log Messages |
+        """
+        log_info(f"Requesting server log level '{level}'.")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            self._connection.call(
+                lambda s: s.set_logging_level(level), timeout=self._timeout(timeout)
+            )
+
+    @keyword("Get Server Log Messages")
+    def get_server_log_messages(self):
+        """Returns every log message the server has sent this connection.
+
+        Each entry is a dictionary with ``level``, ``logger`` (may be
+        ``None``), and ``data`` (the message payload — its shape is up to the
+        server). Messages accumulate for the life of the connection; use
+        `Clear Server Log Messages` to reset between test cases if needed.
+
+        Most servers only send messages at or above the level requested with
+        `Set Logging Level`, so call that first if the list stays empty.
+
+        Example:
+        | ${logs}= | Get Server Log Messages |
+        | Length Should Be | ${logs} | 1 |
+        | Should Be Equal | ${logs}[0][level] | warning |
+        """
+        return [
+            {"level": m.level, "logger": m.logger, "data": m.data}
+            for m in self._connection.log_messages
+        ]
+
+    @keyword("Clear Server Log Messages")
+    def clear_server_log_messages(self):
+        """Discards every log message collected so far on the current connection.
+
+        Use this between test cases in the same suite so each test only sees
+        the log messages its own actions caused.
+        """
+        self._connection.log_messages.clear()

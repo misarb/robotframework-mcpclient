@@ -4,6 +4,19 @@ from robot.api.deco import keyword
 
 from .. import _convert as convert
 from .._logging import log_request, log_response
+from ..errors import MCPValidationError
+
+# On mcp 2.x, ClientSession.call_tool() validates a successful result's
+# structured content against the tool's own output schema and raises a bare
+# RuntimeError if it does not match (mcp 1.x has no such check). The three
+# phrasings below are the only ones that method raises; matching on them lets
+# _call_tool wrap just that failure as MCPValidationError without swallowing
+# an unrelated RuntimeError raised elsewhere in the call.
+_SCHEMA_VALIDATION_MARKERS = (
+    "has an output schema but did not return structured content",
+    "Invalid structured content returned by tool",
+    "Invalid schema for tool",
+)
 
 
 class ToolKeywords:
@@ -58,16 +71,19 @@ class ToolKeywords:
         the test keeps working across MCP SDK versions.
 
         A tool that reports a failure still returns a result — only protocol
-        and transport problems raise an error from this keyword.
+        and transport problems raise an error from this keyword. On mcp 2.x, a
+        tool returning structured content that violates its own declared
+        output schema is one such problem: the SDK checks this itself and the
+        call raises ``MCPValidationError`` instead of returning a result. See
+        `Tool Result Should Match Output Schema` to check this explicitly, and
+        for SDK versions that don't check it automatically.
 
         Example:
         | ${result}= | Call Tool | get_weather | city=Paris |
         | Tool Result Should Not Be Error | ${result} |
         """
         log_request("tools/call", name=name, arguments=arguments)
-        result = self._connection.call(
-            lambda s: s.call_tool(name, dict(arguments)), timeout=self._timeout(timeout)
-        )
+        result = self._call_tool(name, dict(arguments), timeout)
         log_response("tools/call", result)
         return self._maybe_convert(result)
 
@@ -76,7 +92,8 @@ class ToolKeywords:
         """Calls a tool with its arguments given as a dictionary.
 
         Use this when argument names are not valid Robot named arguments, or
-        when the arguments are built at runtime.
+        when the arguments are built at runtime. See `Call Tool` for how a
+        schema-violating result is handled.
 
         Example:
         | ${args}= | Create Dictionary | city=Paris |
@@ -84,9 +101,7 @@ class ToolKeywords:
         """
         arguments = dict(arguments) if arguments else {}
         log_request("tools/call", name=name, arguments=arguments)
-        result = self._connection.call(
-            lambda s: s.call_tool(name, arguments), timeout=self._timeout(timeout)
-        )
+        result = self._call_tool(name, arguments, timeout)
         log_response("tools/call", result)
         return self._maybe_convert(result)
 
@@ -109,7 +124,49 @@ class ToolKeywords:
         """
         return convert.structured_content(result)
 
+    @keyword("Get Last Tool Call Progress")
+    def get_last_tool_call_progress(self):
+        """Returns the progress notifications sent during the most recent `Call Tool`.
+
+        Each entry is a dictionary with ``progress``, ``total`` (may be
+        ``None``), and ``message`` (may be ``None``), in the order the server
+        sent them. Empty if the tool sent no progress, or before the first
+        call in the suite.
+
+        Cleared at the start of every `Call Tool` / `Call Tool With
+        Arguments`, so this always reflects the single most recent call.
+
+        Example:
+        | Call Tool | slow_tool | file=big.csv |
+        | ${progress}= | Get Last Tool Call Progress |
+        | Should Be Equal As Numbers | ${progress}[-1][progress] | 100 |
+        """
+        return list(self._connection.last_call_progress)
+
     # -- helpers ---------------------------------------------------------
+
+    def _call_tool(self, name, arguments, timeout):
+        connection = self._connection
+        connection.last_call_progress = []
+
+        async def on_progress(progress, total, message):
+            connection.last_call_progress.append(
+                {"progress": progress, "total": total, "message": message}
+            )
+
+        try:
+            return connection.call(
+                lambda s: s.call_tool(name, arguments, progress_callback=on_progress),
+                timeout=self._timeout(timeout),
+            )
+        except RuntimeError as err:
+            message = str(err)
+            if any(marker in message for marker in _SCHEMA_VALIDATION_MARKERS):
+                raise MCPValidationError(
+                    f"The result of '{name}' does not match its own declared "
+                    f"output schema: {message}"
+                ) from err
+            raise
 
     def _find_tool(self, name, timeout=None):
         result = self._connection.call(lambda s: s.list_tools(), timeout=self._timeout(timeout))

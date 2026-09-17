@@ -7,10 +7,17 @@ Takes the port as its first argument so tests can pick a free one.
 import sys
 
 from mcp.server.mcpserver import MCPServer
+from pydantic import BaseModel
 
 KNOWN_CITIES = {"Paris": 18, "Berlin": 15, "Cairo": 33}
 
 server = MCPServer("weather-http-test-server", version="1.0.0")
+
+
+class WeatherReport(BaseModel):
+    city: str
+    temperature: int
+    units: str
 
 
 @server.tool()
@@ -25,6 +32,14 @@ def get_weather(city: str, units: str = "celsius") -> str:
 def echo(message: str) -> str:
     """Echo back the message it is given."""
     return message
+
+
+@server.tool()
+def get_weather_structured(city: str, units: str = "celsius") -> WeatherReport:
+    """Return the current weather as structured data matching WeatherReport."""
+    if city not in KNOWN_CITIES:
+        raise ValueError(f"Unknown city: {city}")
+    return WeatherReport(city=city, temperature=KNOWN_CITIES[city], units=units)
 
 
 if __name__ == "__main__":

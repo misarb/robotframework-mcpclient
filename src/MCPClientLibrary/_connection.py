@@ -11,8 +11,15 @@ from contextlib import asynccontextmanager
 
 from mcp import ClientSession, StdioServerParameters, stdio_client
 from mcp.client.streamable_http import create_mcp_http_client, streamable_http_client
+from mcp.shared.exceptions import MCPError as SdkMCPError
 
-from .errors import MCPConnectionError, MCPLibraryError
+from .errors import (
+    MCPConnectionError,
+    MCPHandshakeError,
+    MCPLibraryError,
+    MCPProcessError,
+    MCPProtocolError,
+)
 
 STDERR_TAIL_CHARS = 2000
 
@@ -34,6 +41,8 @@ class MCPConnection:
         self.alias = None
         self.server_info = None
         self.capabilities = None
+        self.log_messages = []
+        self.last_call_progress = []
 
     # -- transport seam ---------------------------------------------------
     # Every transport returns the same (read, write) stream pair, so adding
@@ -87,6 +96,15 @@ class MCPConnection:
             return ""
         return text[-STDERR_TAIL_CHARS:] if len(text) > STDERR_TAIL_CHARS else text
 
+    async def _on_log_message(self, params):
+        """Records a ``notifications/message`` the server sends during the session.
+
+        Called on the bridge's loop thread; ``log_messages`` is a plain list,
+        which is safe to append to and read from another thread under the
+        GIL — there is no compound read-modify-write across the two sides.
+        """
+        self.log_messages.append(params)
+
     def _describe_failure(self, failure):
         """A failure message that includes the server's own stderr, if any."""
         message = f"Could not connect to the MCP server: {failure}"
@@ -102,9 +120,12 @@ class MCPConnection:
         if self._failure is not None:
             failure = self._failure
             self._failure = None
-            raise MCPConnectionError(self._describe_failure(failure)) from failure
+            error_type = (
+                type(failure) if isinstance(failure, MCPConnectionError) else MCPProcessError
+            )
+            raise error_type(self._describe_failure(failure)) from failure
         if self._session is None:
-            raise MCPConnectionError(
+            raise MCPProcessError(
                 self._describe_failure("it closed the connection during the handshake")
             )
         return self
@@ -121,15 +142,28 @@ class MCPConnection:
     async def _hold(self):
         try:
             async with self._open_transport() as (read, write):
-                async with ClientSession(read, write) as session:
-                    result = await session.initialize()
-                    self._session = session
-                    self.server_info = result.server_info
-                    self.capabilities = result.capabilities
-                    self._ready.set()
-                    await self._shutdown.wait()
-        except Exception as err:
+                try:
+                    async with ClientSession(
+                        read, write, logging_callback=self._on_log_message
+                    ) as session:
+                        result = await session.initialize()
+                        self._session = session
+                        self.server_info = result.server_info
+                        self.capabilities = result.capabilities
+                        self._ready.set()
+                        await self._shutdown.wait()
+                except Exception as err:
+                    # The transport came up; the failure is the handshake
+                    # itself (bad initialize response, protocol mismatch, or
+                    # the session closing before it completed).
+                    raise MCPHandshakeError(str(err)) from err
+        except MCPHandshakeError as err:
             self._failure = err
+        except Exception as err:
+            # The transport itself never came up: the process could not be
+            # spawned, or (for HTTP) the connection was refused.
+            self._failure = MCPProcessError(str(err))
+            self._failure.__cause__ = err
         finally:
             self._session = None
             self._ready.set()
@@ -159,9 +193,19 @@ class MCPConnection:
     # -- use --------------------------------------------------------------
 
     def call(self, make_coro, timeout=30):
-        """Run ``make_coro(session)`` on the loop thread and return its result."""
+        """Run ``make_coro(session)`` on the loop thread and return its result.
+
+        A JSON-RPC error from the server (an unknown method, invalid params, an
+        internal server error at the protocol level) is not a tool-level
+        failure — that comes back as a normal result with the error flag set.
+        This is the transport telling us the *request itself* was rejected, so
+        it is raised as ``MCPProtocolError`` rather than returned.
+        """
         if self._session is None:
             raise MCPConnectionError(
                 "The MCP session is not open. Use 'Connect To MCP Server' first."
             )
-        return self._bridge.run(make_coro(self._session), timeout=timeout)
+        try:
+            return self._bridge.run(make_coro(self._session), timeout=timeout)
+        except SdkMCPError as err:
+            raise MCPProtocolError(f"The MCP server returned an error: {err}") from err

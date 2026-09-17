@@ -13,6 +13,29 @@ uses [semantic versioning](https://semver.org/).
   optional `headers=` dictionary for authentication (bearer tokens, API keys).
   Every other keyword works unchanged against an HTTP connection — tools,
   resources, prompts, and assertions don't know which transport they're on.
+- **Output schema validation**: `Tool Result Should Match Output Schema`
+  checks a tool result's structured content against the tool's own declared
+  output schema using standard JSON Schema rules. On mcp 2.x, `Call Tool`
+  itself already performs this check and now raises `MCPValidationError`
+  (instead of a bare `RuntimeError`) when a result doesn't match; the keyword
+  remains useful for explicit checks and for SDK versions that don't check
+  automatically.
+- **Tool call progress capture**: `Get Last Tool Call Progress` returns the
+  progress notifications sent during the most recent `Call Tool`, and
+  `Tool Call Should Have Reported Progress` asserts at least one arrived.
+  Captured automatically — no setup needed.
+- **Server log capture**: `Set Logging Level` requests a verbosity from the
+  server; `Get Server Log Messages` and `Clear Server Log Messages` read and
+  reset what has been collected on the connection; `Server Should Have
+  Logged` and `Server Should Not Have Logged` assert on it, with an optional
+  `level=` filter.
+- **Granular exceptions**: the exception hierarchy now distinguishes
+  `MCPHandshakeError` (server started, `initialize()` failed) from
+  `MCPProcessError` (the process/connection never came up), and adds
+  `MCPProtocolError` (a JSON-RPC error from the server) and
+  `MCPValidationError` (a result didn't match what the server declared).
+  All remain `MCPLibraryError` subclasses, so existing code that catches the
+  base class, or matches on message text, is unaffected.
 
 ### Fixed
 

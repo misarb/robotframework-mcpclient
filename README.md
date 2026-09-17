@@ -139,6 +139,37 @@ Assertions:
 | `Tool Result Should Match` | Regular expression against the result text |
 | `Tool Result Should Be Empty` / `Should Not Be Empty` | Whether there is content |
 | `Tool Result Should Have Data` | The result carries structured content |
+| `Tool Result Should Match Output Schema` | Structured content matches the tool's declared output schema |
+
+### Tool call progress
+
+A tool that reports progress during a call — a long-running operation, a
+multi-step process — has its notifications captured automatically:
+
+```robotframework
+${result}=    Call Tool    process_file    filename=data.csv
+${progress}=    Get Last Tool Call Progress
+Should Be Equal As Numbers    ${progress}[-1][progress]    100
+Tool Call Should Have Reported Progress
+```
+
+`Get Last Tool Call Progress` returns the events from the most recent
+`Call Tool`, cleared before each new call.
+
+### Server-sent log messages
+
+```robotframework
+Set Logging Level    debug
+Call Tool    get_weather    city=Nowhereville
+Server Should Have Logged    unknown city    level=warning
+```
+
+`Set Logging Level`, `Get Server Log Messages`, `Clear Server Log Messages`,
+`Server Should Have Logged`, `Server Should Not Have Logged`.
+
+Log messages accumulate for the life of the connection; a server must
+declare the (now-deprecated but widely implemented) `logging` capability to
+accept `Set Logging Level`.
 
 ### Resources
 
@@ -179,6 +210,22 @@ attribute yourself. The field has been spelled `isError` and `is_error` across
 MCP SDK versions; the keywords handle both, so your tests survive an SDK
 upgrade. This is the main reason to use a library rather than hand-rolling the
 checks.
+
+### Exception types
+
+Robot Framework itself only ever matches error messages, but the exceptions
+this library raises form a hierarchy, for Python code built on top of it
+(custom keywords that want to catch a specific failure):
+
+```
+MCPLibraryError
+├── MCPTimeoutError        A keyword's timeout expired
+├── MCPConnectionError     The connection isn't usable
+│   ├── MCPHandshakeError  The server started but initialize() failed
+│   └── MCPProcessError    The server process/connection never came up
+├── MCPProtocolError       The server returned a JSON-RPC error
+└── MCPValidationError     A result didn't match what the server declared
+```
 
 ## Return values
 

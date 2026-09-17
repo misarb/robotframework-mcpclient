@@ -29,6 +29,7 @@ classifiers = [
 dependencies = [
     "robotframework>=5.0",
     "mcp>=1.0",
+    "jsonschema>=4.0",
 ]
 
 [project.optional-dependencies]

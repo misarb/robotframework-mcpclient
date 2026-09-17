@@ -7,6 +7,7 @@ and what the server actually offered, so a failing test explains itself.
 
 import re
 
+import jsonschema
 from robot.api.deco import keyword
 
 from .. import _convert as convert
@@ -203,6 +204,51 @@ class AssertionKeywords:
         if convert.structured_content(result) is None:
             raise AssertionError(msg or "The tool result carries no structured content.")
 
+    @keyword("Tool Result Should Match Output Schema")
+    def tool_result_should_match_output_schema(self, name, result, msg=None):
+        """Fails unless the result's structured content matches the tool's output schema.
+
+        ``name`` is the tool that was called; its ``output_schema`` (as
+        declared in `List Tools`) is fetched and validated against
+        ``result``'s structured content using standard JSON Schema rules.
+
+        This catches a server that advertises an output schema but returns
+        data that does not actually match it — a real bug that
+        `Tool Result Should Have Data` cannot see, because that keyword only
+        checks that *some* structured content came back.
+
+        Fails immediately, with a clear message, if the tool declares no
+        output schema at all: there would be nothing to validate against.
+
+        Example:
+        | ${result}= | Call Tool | get_weather | city=Paris |
+        | Tool Result Should Match Output Schema | get_weather | ${result} |
+        """
+        tool = self._require_tool(name)
+        schema = convert.output_schema(tool)
+        if not schema:
+            raise AssertionError(
+                msg
+                or f"The tool '{name}' does not declare an output schema, "
+                f"so there is nothing to validate its result against."
+            )
+        data = convert.structured_content(result)
+        if data is None:
+            raise AssertionError(
+                msg
+                or f"The tool result carries no structured content to validate "
+                f"against '{name}''s output schema."
+            )
+        try:
+            jsonschema.validate(instance=data, schema=schema)
+        except jsonschema.ValidationError as err:
+            path = ".".join(str(p) for p in err.path) or "(root)"
+            raise AssertionError(
+                msg
+                or f"The result of '{name}' does not match its output schema "
+                f"at {path}: {err.message}"
+            ) from None
+
     # -- resources --------------------------------------------------------
 
     @keyword("Resource Should Exist")
@@ -279,6 +325,66 @@ class AssertionKeywords:
                 msg
                 or f"The prompt '{name}' does not require {', '.join(missing)}. "
                 f"It requires: {', '.join(required) or 'nothing'}."
+            )
+
+    # -- server logging -----------------------------------------------------
+
+    @keyword("Server Should Have Logged")
+    def server_should_have_logged(self, expected, level=None, msg=None):
+        """Fails unless a collected server log message contains ``expected``.
+
+        Searches every message from `Get Server Log Messages` (call
+        `Set Logging Level` first, or nothing will have been collected). Give
+        ``level`` to only search messages at that exact level.
+
+        The match is against the message's ``data`` field converted to text,
+        since a server may send a string, a structured object, or nothing
+        meaningful there at all.
+
+        Example:
+        | Set Logging Level | debug |
+        | Call Tool | get_weather | city=Nowhereville |
+        | Server Should Have Logged | unknown city | level=warning |
+        """
+        messages = self.get_server_log_messages()
+        if level is not None:
+            messages = [m for m in messages if m["level"] == level]
+        if not any(expected in str(m["data"]) for m in messages):
+            where = f" at level '{level}'" if level else ""
+            raise AssertionError(
+                msg
+                or f"No server log message{where} contains '{expected}'. "
+                f"Collected {len(messages)} message(s): "
+                f"{[str(m['data']) for m in messages] or 'none'}."
+            )
+
+    @keyword("Server Should Not Have Logged")
+    def server_should_not_have_logged(self, unexpected, level=None, msg=None):
+        """Fails if a collected server log message contains ``unexpected``.
+
+        Handy for checking a server doesn't log something it shouldn't — a
+        secret, a stack trace, an internal path. See `Server Should Have
+        Logged` for how messages are matched and what ``level`` does.
+        """
+        messages = self.get_server_log_messages()
+        if level is not None:
+            messages = [m for m in messages if m["level"] == level]
+        if any(unexpected in str(m["data"]) for m in messages):
+            raise AssertionError(
+                msg or f"A server log message contains '{unexpected}', but should not."
+            )
+
+    # -- tool call progress ---------------------------------------------
+
+    @keyword("Tool Call Should Have Reported Progress")
+    def tool_call_should_have_reported_progress(self, msg=None):
+        """Fails unless the most recent `Call Tool` sent at least one progress notification.
+
+        See `Get Last Tool Call Progress` for the captured events.
+        """
+        if not self.get_last_tool_call_progress():
+            raise AssertionError(
+                msg or "The most recent tool call reported no progress notifications."
             )
 
     # -- helpers ----------------------------------------------------------

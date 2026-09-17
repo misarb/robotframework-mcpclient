@@ -1,7 +1,7 @@
 Keywords
 ========
 
-MCPClientLibrary exposes 45 keywords across five categories.
+MCPClientLibrary exposes 53 keywords across five categories.
 
 Full reference: `MCPClientLibrary.html <_static/MCPClientLibrary.html>`_
 
@@ -303,6 +303,71 @@ Prompt Assertions
 .. code-block:: robotframework
 
     Prompt Should Require Argument    greet_prompt    language
+
+Output Schema Validation
+-------------------------
+
+**Tool Result Should Match Output Schema** — Check a result's structured
+content against the tool's own declared output schema.
+
+.. code-block:: robotframework
+
+    ${result}=    Call Tool    get_weather_structured    city=Paris
+    Tool Result Should Match Output Schema    get_weather_structured    ${result}
+
+On mcp 2.x, ``Call Tool`` already checks this itself and raises
+``MCPValidationError`` if a result doesn't match — this keyword exists for
+explicit checks in a test, and for SDK versions that don't check it on their
+own.
+
+Progress Capture
+-----------------
+
+**Get Last Tool Call Progress** — The progress notifications sent during the
+most recent ``Call Tool``.
+
+.. code-block:: robotframework
+
+    Call Tool    process_file    filename=data.csv
+    ${progress}=    Get Last Tool Call Progress
+    Should Be Equal As Numbers    ${progress}[-1][progress]    100
+
+**Tool Call Should Have Reported Progress** — Fails unless the most recent
+call sent at least one progress notification.
+
+.. code-block:: robotframework
+
+    Call Tool    process_file    filename=data.csv
+    Tool Call Should Have Reported Progress
+
+Server Log Capture
+--------------------
+
+**Set Logging Level** — Ask the server to send log messages at a level or
+more severe (``debug``, ``info``, ``notice``, ``warning``, ``error``,
+``critical``, ``alert``, ``emergency``).
+
+.. code-block:: robotframework
+
+    Set Logging Level    debug
+
+**Get Server Log Messages** / **Clear Server Log Messages** — Read or discard
+the messages collected on the current connection.
+
+.. code-block:: robotframework
+
+    ${logs}=    Get Server Log Messages
+    Length Should Be    ${logs}    1
+    Clear Server Log Messages
+
+**Server Should Have Logged** / **Server Should Not Have Logged** — Check a
+collected message contains (or doesn't contain) given text, optionally
+filtered to one level.
+
+.. code-block:: robotframework
+
+    Server Should Have Logged        unknown city    level=warning
+    Server Should Not Have Logged    Traceback
 
 Common Options
 --------------
