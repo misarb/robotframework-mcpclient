@@ -15,7 +15,8 @@ No async code. No protocol plumbing. Just keywords.
 Key Features
 ------------
 
-- **44 keywords** spanning connection lifecycle, tools, resources, and prompts
+- **45 keywords** spanning connection lifecycle, tools, resources, and prompts
+- **Two transports** — stdio (local subprocess) and streamable HTTP (remote server)
 - **Assertion keywords** for both pass and fail paths
 - **Multi-server support** with connection aliases
 - **Comprehensive logging** of every request and response

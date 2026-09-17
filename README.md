@@ -93,6 +93,23 @@ Switch MCP Server        notes
 Tool Should Exist        create_note
 ```
 
+### Connecting over HTTP
+
+For a remote MCP server, use `Connect To MCP Server Over HTTP` instead — same
+keywords work afterward regardless of transport:
+
+```robotframework
+Connect To MCP Server Over HTTP    https://example.com/mcp
+Tool Should Exist    get_weather
+```
+
+Pass extra headers for authentication:
+
+```robotframework
+${headers}=    Create Dictionary    Authorization=Bearer ${TOKEN}
+Connect To MCP Server Over HTTP    https://example.com/mcp    headers=${headers}
+```
+
 ## What you can test
 
 ### Tools
@@ -218,10 +235,13 @@ python -m robot.libdoc MCPClientLibrary docs/MCPClientLibrary.html
 
 ## Transport support
 
-This version speaks **stdio**, which covers local servers — the case that
-matters for testing a server you are developing. Streamable HTTP for remote
-servers is planned; the transport sits behind a single seam in the code, so
-adding it will not change any keyword.
+Two transports are supported, and every keyword after `Connect To MCP Server*`
+works the same on both:
+
+- **stdio** (`Connect To MCP Server`) — starts the server as a subprocess.
+  The usual choice for testing a server you're developing locally.
+- **Streamable HTTP** (`Connect To MCP Server Over HTTP`) — connects to a
+  running remote server by URL, with optional headers for authentication.
 
 ## Contributing
 

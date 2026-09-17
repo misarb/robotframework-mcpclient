@@ -10,6 +10,7 @@ import tempfile
 from contextlib import asynccontextmanager
 
 from mcp import ClientSession, StdioServerParameters, stdio_client
+from mcp.client.streamable_http import create_mcp_http_client, streamable_http_client
 
 from .errors import MCPConnectionError, MCPLibraryError
 
@@ -41,23 +42,40 @@ class MCPConnection:
     @asynccontextmanager
     async def _open_transport(self):
         if self._transport == "stdio":
-            params = StdioServerParameters(**self._transport_options)
-            # The server's stderr goes to a temporary file rather than to
-            # sys.stderr: Robot replaces sys.stderr with a stream that has no
-            # file descriptor, which the subprocess cannot inherit. Capturing
-            # it also means a server that dies during startup can explain why.
-            self._errlog = tempfile.TemporaryFile(mode="w+", prefix="mcp-server-stderr-")
-            try:
-                async with stdio_client(params, errlog=self._errlog) as streams:
-                    yield streams
-            finally:
-                errlog, self._errlog = self._errlog, None
-                self._stderr_tail = self._read_stderr(errlog)
-                errlog.close()
+            async with self._open_stdio_transport() as streams:
+                yield streams
+        elif self._transport == "http":
+            async with self._open_http_transport() as streams:
+                yield streams
         else:
             raise MCPLibraryError(
-                f"Unsupported transport '{self._transport}'. This version supports 'stdio'."
+                f"Unsupported transport '{self._transport}'. "
+                f"This version supports 'stdio' and 'http'."
             )
+
+    @asynccontextmanager
+    async def _open_stdio_transport(self):
+        params = StdioServerParameters(**self._transport_options)
+        # The server's stderr goes to a temporary file rather than to
+        # sys.stderr: Robot replaces sys.stderr with a stream that has no
+        # file descriptor, which the subprocess cannot inherit. Capturing
+        # it also means a server that dies during startup can explain why.
+        self._errlog = tempfile.TemporaryFile(mode="w+", prefix="mcp-server-stderr-")
+        try:
+            async with stdio_client(params, errlog=self._errlog) as streams:
+                yield streams
+        finally:
+            errlog, self._errlog = self._errlog, None
+            self._stderr_tail = self._read_stderr(errlog)
+            errlog.close()
+
+    @asynccontextmanager
+    async def _open_http_transport(self):
+        url = self._transport_options["url"]
+        headers = self._transport_options.get("headers")
+        http_client = create_mcp_http_client(headers=headers) if headers else None
+        async with streamable_http_client(url, http_client=http_client) as streams:
+            yield streams
 
     @staticmethod
     def _read_stderr(errlog):

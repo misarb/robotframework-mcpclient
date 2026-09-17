@@ -4,7 +4,26 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses [semantic versioning](https://semver.org/).
 
-## [0.1.0] — Unreleased
+## [0.2.0] — Unreleased
+
+### Added
+
+- **Streamable HTTP transport**: `Connect To MCP Server Over HTTP` connects
+  to a remote MCP server by URL instead of launching a subprocess, with an
+  optional `headers=` dictionary for authentication (bearer tokens, API keys).
+  Every other keyword works unchanged against an HTTP connection — tools,
+  resources, prompts, and assertions don't know which transport they're on.
+
+### Fixed
+
+- The async bridge now catches `concurrent.futures.TimeoutError` (not just
+  the built-in `TimeoutError`), which `Future.result()` actually raises on
+  timeout. Fixes spurious CI failures on some platforms.
+- CI: acceptance tests now resolve the Python interpreter with
+  `sys.executable` instead of assuming `python` is on PATH, and run under an
+  explicit `bash` shell so the fix works on Windows runners too.
+
+## [0.1.0] — 2026-09-16
 
 First release.
 
@@ -32,4 +51,5 @@ First release.
   payload does not bury the report. A server that dies during startup has its
   stderr included in the failure message.
 
-[0.1.0]: https://github.com/robotframework-mcpclient/robotframework-mcpclient/releases/tag/v0.1.0
+[0.2.0]: https://github.com/misarb/robotframework-mcpclient/releases/tag/v0.2.0
+[0.1.0]: https://github.com/misarb/robotframework-mcpclient/releases/tag/v0.1.0

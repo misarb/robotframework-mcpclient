@@ -1,7 +1,7 @@
 Keywords
 ========
 
-MCPClientLibrary exposes 44 keywords across five categories.
+MCPClientLibrary exposes 45 keywords across five categories.
 
 Full reference: `MCPClientLibrary.html <_static/MCPClientLibrary.html>`_
 
@@ -27,6 +27,27 @@ Arguments:
 - ``timeout`` — Seconds to wait for the handshake (default: ``default_timeout``)
 
 Returns: Connection index (integer)
+
+**Connect To MCP Server Over HTTP** — Connect to a remote MCP server by URL.
+
+.. code-block:: robotframework
+
+    Connect To MCP Server Over HTTP    https://example.com/mcp
+
+    ${headers}=    Create Dictionary    Authorization=Bearer ${TOKEN}
+    Connect To MCP Server Over HTTP    https://example.com/mcp    headers=${headers}    alias=remote
+
+Arguments:
+- ``url`` — The server's MCP endpoint
+- ``headers`` — Dictionary of extra HTTP headers, e.g. for authentication (optional)
+- ``alias`` — Name for this connection (for multi-server suites)
+- ``timeout`` — Seconds to wait for the handshake (default: ``default_timeout``)
+
+Returns: Connection index (integer)
+
+Every keyword below works the same regardless of which ``Connect To MCP
+Server*`` keyword was used — tools, resources, prompts, and assertions don't
+know which transport they're on.
 
 **Disconnect From MCP Server** — Close a connection and stop the server.
 

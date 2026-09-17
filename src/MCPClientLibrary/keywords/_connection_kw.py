@@ -39,6 +39,35 @@ class ConnectionKeywords:
         log_info(f"Connected to MCP server '{name}' {version} (index {index}).")
         return index
 
+    @keyword("Connect To MCP Server Over HTTP")
+    def connect_to_mcp_server_over_http(self, url, headers=None, alias=None, timeout=None):
+        """Connects to a remote MCP server over streamable HTTP.
+
+        ``url`` is the server's MCP endpoint. ``headers`` takes a dictionary of
+        extra HTTP headers, for authentication (a bearer token, an API key).
+
+        Give an ``alias`` to keep several servers connected at once and move
+        between them with `Switch MCP Server`. Returns the connection index.
+
+        Example:
+        | Connect To MCP Server Over HTTP | https://example.com/mcp |
+        | ${headers}= | Create Dictionary | Authorization=Bearer secret-token |
+        | Connect To MCP Server Over HTTP | https://example.com/mcp | headers=${headers} |
+        """
+        connection = MCPConnection(
+            self._bridge,
+            transport="http",
+            url=url,
+            headers=dict(headers) if headers else None,
+        )
+        connection.open(timeout=self._timeout(timeout))
+        connection.alias = alias
+        index = self._cache.register(connection, alias)
+        name = getattr(connection.server_info, "name", "unknown")
+        version = getattr(connection.server_info, "version", "")
+        log_info(f"Connected to MCP server '{name}' {version} over HTTP (index {index}).")
+        return index
+
     @keyword("Disconnect From MCP Server")
     def disconnect_from_mcp_server(self, alias=None):
         """Closes one MCP connection and stops its server process.
