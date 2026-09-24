@@ -35,10 +35,13 @@ jobs:
         run: python -m pytest tests/ -v
 
       - name: Acceptance tests
+        # atest/real_servers/ needs Node.js/npx, which this job doesn't set
+        # up (it's covered by the dedicated real-server job below) — Robot
+        # recurses into subdirectories, so it must be excluded explicitly.
         shell: bash
         run: |
           PYTHON_PATH=$(python -c "import sys; print(sys.executable)")
-          python -m robot --variable INTERPRETER:$PYTHON_PATH --outputdir results atest/
+          python -m robot --variable INTERPRETER:$PYTHON_PATH --outputdir results --exclude real-server atest/
 
       - name: Upload Robot results
         if: always()
@@ -78,10 +81,11 @@ jobs:
         run: python -m pytest tests/ -v
 
       - name: Acceptance tests
+        # Excludes atest/real_servers/ — see the note in the test job above.
         shell: bash
         run: |
           PYTHON_PATH=$(python -c "import sys; print(sys.executable)")
-          python -m robot --variable INTERPRETER:$PYTHON_PATH --outputdir results-rf${{ matrix.robotframework-version }} atest/
+          python -m robot --variable INTERPRETER:$PYTHON_PATH --outputdir results-rf${{ matrix.robotframework-version }} --exclude real-server atest/
 
       - name: Upload Robot results
         if: always()
@@ -89,6 +93,47 @@ jobs:
         with:
           name: robot-results-rf${{ matrix.robotframework-version }}
           path: results-rf${{ matrix.robotframework-version }}/
+
+  real-server:
+    # Integration check against a real, independently-built MCP server
+    # (@modelcontextprotocol/server-filesystem, the official reference
+    # implementation) rather than this project's own fixtures under
+    # tests/servers/ — those are built to exercise this library's keywords
+    # and can't catch an assumption that only holds for servers written that
+    # way. continue-on-error: a failure here (npm registry unavailable, the
+    # package changing behaviour upstream) is a signal to investigate, not a
+    # reason to block every other PR — the atest/ suite against this
+    # project's own fixtures is still the real gate.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Real MCP server integration test
+        shell: bash
+        run: |
+          PYTHON_PATH=$(python -c "import sys; print(sys.executable)")
+          python -m robot --variable INTERPRETER:$PYTHON_PATH --outputdir results-real atest/real_servers/
+
+      - name: Upload Robot results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: robot-results-real-server
+          path: results-real/
 
   lint:
     runs-on: ubuntu-latest

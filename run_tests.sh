@@ -18,7 +18,10 @@ echo
 echo "== Acceptance tests =="
 # The sample servers are started with the same interpreter that runs the tests,
 # so they can import the dependencies from this environment.
-"$PYTHON" -m robot --variable "INTERPRETER:$PYTHON" --outputdir results atest/
+# atest/real_servers/ (tagged 'real-server') needs Node.js/npx and network
+# access to fetch a real MCP server package, so it's excluded here — run it
+# separately with: robot atest/real_servers/
+"$PYTHON" -m robot --variable "INTERPRETER:$PYTHON" --outputdir results --exclude real-server atest/
 
 echo
 echo "== Keyword documentation =="

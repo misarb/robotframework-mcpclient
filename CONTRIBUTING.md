@@ -19,12 +19,34 @@ pip install -e ".[dev]"
 # Unit tests
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/ -v
 
-# Acceptance tests (Robot Framework)
+# Acceptance tests (Robot Framework) — Robot recurses into subdirectories,
+# so this also runs atest/real_servers/ (see below) and needs Node.js too
 python -m robot --variable INTERPRETER:python --outputdir results atest/
+
+# Skip atest/real_servers/ (tagged 'real-server') if you don't have Node.js set up
+python -m robot --variable INTERPRETER:python --outputdir results --exclude real-server atest/
 
 # Or run both at once
 ./run_tests.sh
 ```
+
+### Real-server integration tests
+
+`atest/real_servers/` runs against a real MCP server
+(`@modelcontextprotocol/server-filesystem`) instead of this project's own
+fixtures under `tests/servers/` — it needs Node.js and network access to
+fetch the package. It's tagged `real-server`, which is how the commands
+above include or exclude it. To run just this suite:
+
+```bash
+python -m robot --variable INTERPRETER:python --outputdir results atest/real_servers/
+```
+
+CI's `test` and `robotframework-versions` jobs run with
+`--exclude real-server` (no Node.js set up there); a separate `real-server`
+job runs it with `continue-on-error: true` — a failure there is worth
+investigating (the package changed behaviour, or the npm registry was
+unreachable) but doesn't block a PR the way the other jobs do.
 
 ## Code style
 

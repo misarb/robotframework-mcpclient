@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Real-server integration suite**: `atest/real_servers/filesystem_server.robot`
+  tests the library against `@modelcontextprotocol/server-filesystem`, the
+  official reference MCP server (npx-installable, no API keys), rather than
+  this project's own fixtures — 7 tests covering identity, real tool
+  schemas, a server that declares no resources capability at all (a
+  protocol error, handled cleanly), a real write/read round trip, the
+  server's own sandbox security boundary surfacing as a tool error, and a
+  real directory listing/search. Robot recurses into subdirectories, so it
+  runs as part of `atest/` too, which now also needs Node.js and network
+  access. CI runs it in its own job (`real-server`) with
+  `continue-on-error: true`.
+
 ## [0.2.0] — 2026-09-24
 
 ### Added

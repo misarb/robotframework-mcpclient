@@ -406,6 +406,23 @@ python -m pytest tests/              # unit tests
 python -m robot --outputdir results atest/   # acceptance tests
 ```
 
+`atest/real_servers/` is an integration suite against a real,
+independently-built MCP server — `@modelcontextprotocol/server-filesystem`,
+the official reference implementation — rather than this project's own
+fixtures. Robot recurses into subdirectories, so it's picked up by the
+`atest/` command above too, and needs Node.js and network access on top of
+the usual Python setup. It's tagged `real-server`; leave it out with:
+
+```bash
+python -m robot --outputdir results --exclude real-server atest/
+```
+
+Or run just this suite:
+
+```bash
+python -m robot --outputdir results atest/real_servers/
+```
+
 ## License
 
 Apache 2.0. See [LICENSE](LICENSE).
