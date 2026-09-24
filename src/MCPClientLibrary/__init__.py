@@ -87,6 +87,14 @@ class MCPClientLibrary(
     | Switch MCP Server        weather
     | Tool Should Exist        get_weather
 
+    `Switch MCP Server` changes which connection is "current" for the whole
+    library, shared by every keyword — fine sequentially, but a race if two
+    threads switch and call at the same time (one thread's switch can land
+    between another's switch and its call, and the call lands on the wrong
+    server). For calls made concurrently from different threads, use
+    `Call Tool On Server` instead: it names its connection directly and never
+    touches the shared "current connection".
+
     = Importing =
 
     | Argument | Default | Description |
@@ -118,6 +126,16 @@ class MCPClientLibrary(
     def _connection(self):
         """The current connection, or a clear failure if there is none."""
         return self._cache.current
+
+    def _connection_named(self, alias_or_index):
+        """A connection by alias or index, without touching 'current'.
+
+        Unlike `Switch MCP Server`, this never mutates shared cache state, so
+        it is the safe way to reach a specific connection from a keyword that
+        might run concurrently with another thread switching servers — see
+        the ``*On Server`` keywords.
+        """
+        return self._cache.get_connection(alias_or_index)
 
     def _timeout(self, timeout):
         return self._default_timeout if timeout is None else float(timeout)

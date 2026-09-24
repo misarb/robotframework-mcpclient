@@ -15,7 +15,7 @@ No async code. No protocol plumbing. Just keywords.
 Key Features
 ------------
 
-- **61 keywords** spanning connection lifecycle, tools, resources, and prompts
+- **62 keywords** spanning connection lifecycle, tools, resources, and prompts
 - **Two transports** — stdio (local subprocess) and streamable HTTP (remote server)
 - **Assertion keywords** for both pass and fail paths
 - **Output schema validation** — check a tool result's structured content
@@ -30,7 +30,11 @@ Key Features
   sampling and elicitation requests, and declare the client's roots
 - **Granular exceptions** — connection, handshake, protocol, and validation
   failures are distinct types, not one generic error
-- **Multi-server support** with connection aliases
+- **Multi-server support** with connection aliases, and a thread-safe way
+  to call tools on several connections concurrently
+- **Crash detection** — a server dying mid-call is reported clearly and
+  the connection marked closed immediately, rather than a stale "connected"
+  state or a repeated failure against a dead process
 - **Comprehensive logging** of every request and response
 - **Timeout protection** so hung servers don't hang test suites
 - **Optional plain-dict returns** for data-driven tests

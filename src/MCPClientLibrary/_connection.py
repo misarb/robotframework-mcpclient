@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from mcp import ClientSession, StdioServerParameters, stdio_client, types
 from mcp.client.streamable_http import create_mcp_http_client, streamable_http_client
 from mcp.shared.exceptions import MCPError as SdkMCPError
+from mcp.shared.jsonrpc_dispatcher import CONNECTION_CLOSED
 
 from .errors import (
     MCPConnectionError,
@@ -273,6 +274,14 @@ class MCPConnection:
         failure — that comes back as a normal result with the error flag set.
         This is the transport telling us the *request itself* was rejected, so
         it is raised as ``MCPProtocolError`` rather than returned.
+
+        A closed connection (the server crashed, or otherwise tore down its
+        end mid-call) is reported by the SDK the same way as a JSON-RPC error,
+        under a dedicated error code. That case is treated differently: the
+        connection is marked closed right away, so a stale ``is_open`` does
+        not outlive the process that backed it, and the failure is raised as
+        ``MCPConnectionError`` — a usability problem with the session, not a
+        request the server rejected.
         """
         if self._session is None:
             raise MCPConnectionError(
@@ -281,4 +290,10 @@ class MCPConnection:
         try:
             return self._bridge.run(make_coro(self._session), timeout=timeout)
         except SdkMCPError as err:
+            if err.code == CONNECTION_CLOSED:
+                self._session = None
+                raise MCPConnectionError(
+                    "The MCP server's connection closed unexpectedly — it may have "
+                    "crashed. Reconnect with 'Connect To MCP Server' before the next call."
+                ) from err
             raise MCPProtocolError(f"The MCP server returned an error: {err}") from err

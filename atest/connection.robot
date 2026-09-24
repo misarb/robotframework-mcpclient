@@ -74,6 +74,36 @@ Both Servers Stay Usable After Switching
     ${second}=    Call Tool    create_note    text=and the eggs
     Tool Result Should Contain Text    ${second}    Stored note 2
 
+Call Tool On Server Reaches The Named Connection Without Switching
+    Connect To MCP Server    ${INTERPRETER}    ${WEATHER SERVER}    alias=weather
+    Connect To MCP Server    ${INTERPRETER}    ${NOTES SERVER}    alias=notes
+
+    ${result}=    Call Tool On Server    weather    get_weather    city=Paris
+    Tool Result Should Contain Text    ${result}    Paris
+
+    ${note}=    Call Tool On Server    notes    create_note    text=remember the milk
+    Tool Result Should Contain Text    ${note}    Stored note 1
+
+Call Tool On Server Does Not Change The Current Connection
+    Connect To MCP Server    ${INTERPRETER}    ${WEATHER SERVER}    alias=weather
+    Connect To MCP Server    ${INTERPRETER}    ${NOTES SERVER}    alias=notes
+    # "notes" is current here, since it connected last.
+    Call Tool On Server    weather    get_weather    city=Paris
+    Tool Should Exist    create_note
+    Tool Should Not Exist    get_weather
+
+Call Tool On Server Works By Index Too
+    Connect To MCP Server    ${INTERPRETER}    ${WEATHER SERVER}    alias=weather
+    ${result}=    Call Tool On Server    1    get_weather    city=Berlin
+    Tool Result Should Contain Text    ${result}    Berlin
+
+Get Last Tool Call Progress Reads Another Connections Progress
+    Connect To MCP Server    ${INTERPRETER}    ${WEATHER SERVER}    alias=weather
+    Connect To MCP Server    ${INTERPRETER}    ${NOTES SERVER}    alias=notes
+    Call Tool On Server    weather    get_weather    city=Paris
+    ${progress}=    Get Last Tool Call Progress    weather
+    Should Be Empty    ${progress}
+
 Disconnect All Closes Every Connection
     Connect To MCP Server    ${INTERPRETER}    ${WEATHER SERVER}    alias=weather
     Connect To MCP Server    ${INTERPRETER}    ${NOTES SERVER}    alias=notes

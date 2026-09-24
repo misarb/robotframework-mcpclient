@@ -48,6 +48,11 @@ uses [semantic versioning](https://semver.org/).
   question) request — each consumed once, by the next matching request; a
   request with nothing queued gets a clear error rather than hanging or
   reusing a stale answer.
+- **Concurrent calls across connections**: `Call Tool On Server` calls a
+  tool on a named connection (by alias or index) without reading or
+  changing which connection is "current" — the safe way to call several
+  connections from different threads. `Get Last Tool Call Progress` takes
+  the same optional connection argument.
 
 ### Fixed
 
@@ -57,6 +62,15 @@ uses [semantic versioning](https://semver.org/).
 - CI: acceptance tests now resolve the Python interpreter with
   `sys.executable` instead of assuming `python` is on PATH, and run under an
   explicit `bash` shell so the fix works on Windows runners too.
+- **A server crashing mid-call left the connection reporting itself open.**
+  `Call Tool` (and every other keyword) would keep hitting the dead
+  transport and re-raising a raw "Connection closed" `MCPProtocolError`
+  instead of a clean "not connected" message, and `MCP Server Should Be
+  Connected` would pass on a connection that no longer had a server behind
+  it. The SDK's `CONNECTION_CLOSED` error code is now detected specifically:
+  the connection is marked closed immediately and the failure is raised as
+  `MCPConnectionError`, so the next keyword on that connection fails fast
+  with a clear message instead of repeating the dead call.
 
 ### Notes
 

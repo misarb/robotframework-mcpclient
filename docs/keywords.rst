@@ -1,7 +1,7 @@
 Keywords
 ========
 
-MCPClientLibrary exposes 61 keywords across five categories.
+MCPClientLibrary exposes 62 keywords across five categories.
 
 Full reference: `MCPClientLibrary.html <_static/MCPClientLibrary.html>`_
 
@@ -125,6 +125,19 @@ Tools
 
     ${args}=    Create Dictionary    name=Alice
     ${result}=    Call Tool With Arguments    greet    ${args}
+
+**Call Tool On Server** — Execute a tool on a named connection, without
+switching to it.
+
+.. code-block:: robotframework
+
+    ${result}=    Call Tool On Server    weather    get_weather    city=Paris
+
+``Call Tool`` and `Switch MCP Server` share one "current connection" across
+the whole library — fine sequentially, but a race if two threads switch and
+call at the same time. ``Call Tool On Server`` names its connection
+directly and touches no shared state, so it's the safe choice for calling
+several connections concurrently from different threads.
 
 **Get Tool Result Text** — The text blocks of a result, joined.
 

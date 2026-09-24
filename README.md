@@ -93,6 +93,11 @@ Switch MCP Server        notes
 Tool Should Exist        create_note
 ```
 
+`Switch MCP Server` changes which connection is current for the whole
+library — fine sequentially, but calling it from more than one thread races
+(see [Calling several servers concurrently](#calling-several-servers-concurrently)
+below).
+
 ### Connecting over HTTP
 
 For a remote MCP server, use `Connect To MCP Server Over HTTP` instead — same
@@ -121,6 +126,7 @@ Connect To MCP Server Over HTTP    https://example.com/mcp    headers=${headers}
 | `Get Tool` | One tool by name |
 | `Call Tool` | Calls a tool with named arguments |
 | `Call Tool With Arguments` | Calls a tool with an argument dictionary |
+| `Call Tool On Server` | Calls a tool on a named connection, without switching (safe for concurrent use) |
 | `Get Tool Result Text` | The text blocks of a result, joined |
 | `Get Tool Result Data` | The structured (JSON) content of a result |
 
@@ -243,8 +249,8 @@ MCP has two failure paths, and a test suite needs to tell them apart:
 - A **tool error** is a normal result with an error flag set — the call
   succeeded, and the tool is reporting that it could not do the job. Assert on
   it with `Tool Result Should Be Error`.
-- A **protocol error** — an unknown method, a malformed message, a server that
-  died — fails the keyword outright with a readable message.
+- A **protocol error** — an unknown method, a malformed message — fails the
+  keyword outright with a readable message.
 
 Check the tool error flag through the assertion keywords rather than reading the
 attribute yourself. The field has been spelled `isError` and `is_error` across
@@ -263,10 +269,61 @@ MCPLibraryError
 ├── MCPTimeoutError        A keyword's timeout expired
 ├── MCPConnectionError     The connection isn't usable
 │   ├── MCPHandshakeError  The server started but initialize() failed
-│   └── MCPProcessError    The server process/connection never came up
+│   └── MCPProcessError    The server process never came up, or crashed mid-call
 ├── MCPProtocolError       The server returned a JSON-RPC error
 └── MCPValidationError     A result didn't match what the server declared
 ```
+
+### A server that crashes mid-call
+
+If the server process dies while handling a request — not a clean shutdown,
+an actual crash — the keyword that was waiting on it fails with
+`MCPConnectionError`, and the connection is marked closed immediately:
+
+```robotframework
+${result}=    Call Tool    tool_that_crashes_the_server
+# raises MCPConnectionError: "...connection closed unexpectedly — it may have crashed..."
+
+MCP Server Should Be Connected
+# now fails too: the crash already updated the connection's state
+```
+
+Every keyword after that on the same connection fails fast with a clear "not
+open" message — none of them re-attempt a call against the dead process.
+To recover, connect again (under the same alias, if you had one):
+
+```robotframework
+Connect To MCP Server    python    server.py    alias=myserver
+Connect To MCP Server    python    server.py    alias=myserver    # after a crash
+```
+
+`Disconnect All MCP Servers` is always safe to call in a teardown, even with
+a crashed connection sitting in the cache alongside healthy ones.
+
+### Calling several servers concurrently
+
+Every keyword shares one "current connection", tracked by the library — set
+by `Connect To MCP Server` and changed by `Switch MCP Server`. That's fine
+called sequentially, which covers ordinary test suites, but it becomes a race
+if two threads call `Switch MCP Server` and then act on "the current
+connection" at the same time: one thread's switch can land between another's
+switch and its call, and the call goes to the wrong server.
+
+For calls made concurrently from different threads — a custom keyword that
+spawns threads, say — use `Call Tool On Server` instead. It names its
+connection by alias or index directly and never reads or writes the shared
+"current connection", so there's no shared state for a race to land in:
+
+```robotframework
+Connect To MCP Server    python    weather.py    alias=weather
+Connect To MCP Server    python    notes.py      alias=notes
+
+${result}=    Call Tool On Server    weather    get_weather    city=Paris
+${note}=      Call Tool On Server    notes      create_note     text=remember the milk
+```
+
+`Get Last Tool Call Progress` takes the same optional connection argument,
+for reading another connection's progress without switching to it.
 
 ## Return values
 

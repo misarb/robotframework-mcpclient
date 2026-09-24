@@ -78,12 +78,19 @@ class ToolKeywords:
         `Tool Result Should Match Output Schema` to check this explicitly, and
         for SDK versions that don't check it automatically.
 
+        Calling this from several threads at once, targeting *different*
+        connections by mixing it with `Switch MCP Server`, races: nothing
+        stops another thread's switch landing between yours and this call.
+        Use `Call Tool On Server` instead for concurrent, multi-connection
+        calls — it names its connection directly and never touches the
+        shared "current connection".
+
         Example:
         | ${result}= | Call Tool | get_weather | city=Paris |
         | Tool Result Should Not Be Error | ${result} |
         """
         log_request("tools/call", name=name, arguments=arguments)
-        result = self._call_tool(name, dict(arguments), timeout)
+        result = self._call_tool(self._connection, name, dict(arguments), timeout)
         log_response("tools/call", result)
         return self._maybe_convert(result)
 
@@ -93,7 +100,8 @@ class ToolKeywords:
 
         Use this when argument names are not valid Robot named arguments, or
         when the arguments are built at runtime. See `Call Tool` for how a
-        schema-violating result is handled.
+        schema-violating result is handled, and for a note on concurrent use
+        with several connections.
 
         Example:
         | ${args}= | Create Dictionary | city=Paris |
@@ -101,7 +109,28 @@ class ToolKeywords:
         """
         arguments = dict(arguments) if arguments else {}
         log_request("tools/call", name=name, arguments=arguments)
-        result = self._call_tool(name, arguments, timeout)
+        result = self._call_tool(self._connection, name, arguments, timeout)
+        log_response("tools/call", result)
+        return self._maybe_convert(result)
+
+    @keyword("Call Tool On Server")
+    def call_tool_on_server(self, alias_or_index, name, timeout=None, **arguments):
+        """Calls a tool on a specific connection, by alias or index.
+
+        Behaves exactly like `Call Tool`, except it never reads or changes
+        which connection is "current" — the safe way to call tools on several
+        connections concurrently from different threads, since there is no
+        shared state for a race to land in between naming the connection and
+        making the call.
+
+        Example:
+        | Connect To MCP Server | python | weather.py | alias=weather |
+        | Connect To MCP Server | python | notes.py   | alias=notes |
+        | ${result}= | Call Tool On Server | weather | get_weather | city=Paris |
+        """
+        connection = self._connection_named(alias_or_index)
+        log_request("tools/call", name=name, arguments=arguments)
+        result = self._call_tool(connection, name, dict(arguments), timeout)
         log_response("tools/call", result)
         return self._maybe_convert(result)
 
@@ -125,7 +154,7 @@ class ToolKeywords:
         return convert.structured_content(result)
 
     @keyword("Get Last Tool Call Progress")
-    def get_last_tool_call_progress(self):
+    def get_last_tool_call_progress(self, alias_or_index=None):
         """Returns the progress notifications sent during the most recent `Call Tool`.
 
         Each entry is a dictionary with ``progress``, ``total`` (may be
@@ -133,20 +162,30 @@ class ToolKeywords:
         sent them. Empty if the tool sent no progress, or before the first
         call in the suite.
 
-        Cleared at the start of every `Call Tool` / `Call Tool With
-        Arguments`, so this always reflects the single most recent call.
+        Cleared at the start of every call on the same connection (``Call
+        Tool``, `Call Tool With Arguments`, or `Call Tool On Server`), so
+        this always reflects the single most recent call on that connection.
+
+        Give ``alias_or_index`` to read another connection's progress without
+        switching to it — the connection-safe option when calling from
+        several threads, same as `Call Tool On Server`. Defaults to the
+        current connection.
 
         Example:
         | Call Tool | slow_tool | file=big.csv |
         | ${progress}= | Get Last Tool Call Progress |
         | Should Be Equal As Numbers | ${progress}[-1][progress] | 100 |
         """
-        return list(self._connection.last_call_progress)
+        connection = (
+            self._connection_named(alias_or_index)
+            if alias_or_index is not None
+            else self._connection
+        )
+        return list(connection.last_call_progress)
 
     # -- helpers ---------------------------------------------------------
 
-    def _call_tool(self, name, arguments, timeout):
-        connection = self._connection
+    def _call_tool(self, connection, name, arguments, timeout):
         connection.last_call_progress = []
 
         async def on_progress(progress, total, message):
