@@ -224,9 +224,12 @@ state can interleave badly.
 
 Use ``Call Tool On Server`` instead for concurrent, multi-connection calls —
 it names its connection by alias or index directly and never touches the
-shared "current connection", so there's no race to land in. See the
+shared "current connection", so there's no race to land in. See
+:doc:`architecture`'s "Why this makes concurrent calls to different servers
+work" section for the full explanation, including why calls to *different*
+connections are safe without this, and the
 `README's concurrency section <https://github.com/misarb/robotframework-mcpclient#calling-several-servers-concurrently>`_
-for the full explanation and an example.
+for a shorter example.
 
 Still stuck?
 --------------

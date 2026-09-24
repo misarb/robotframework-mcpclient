@@ -53,6 +53,13 @@ uses [semantic versioning](https://semver.org/).
   changing which connection is "current" — the safe way to call several
   connections from different threads. `Get Last Tool Call Progress` takes
   the same optional connection argument.
+- **Architecture documentation**: `docs/architecture.rst` explains the
+  sync/async bridge (why a naive `asyncio.run()` per keyword fails, and how
+  a single long-lived event loop thread avoids it), the session's
+  long-lived task lifecycle, a full request sequence from keyword call to
+  server and back, the transport seam, and why concurrent calls to
+  different connections are safe while `Switch MCP Server` isn't — with 4
+  Graphviz diagrams rendered to SVG at build time.
 
 ### Fixed
 

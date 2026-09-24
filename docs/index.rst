@@ -11,6 +11,7 @@ Robot Framework library for testing MCP (Model Context Protocol) servers.
    installation
    quickstart
    keywords
+   architecture
    troubleshooting
 
 Overview

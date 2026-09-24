@@ -120,7 +120,10 @@ jobs:
       # promoted to errors — catches a broken build (bad directive, missing
       # extension dependency, dangling toctree entry) here instead of it
       # only surfacing as a stale or broken page on the live site.
+      # graphviz (the `dot` binary the architecture diagrams render with) is
+      # installed explicitly rather than assumed present on the runner image.
       - name: Build Sphinx documentation
         run: |
+          sudo apt-get update && sudo apt-get install -y graphviz
           pip install -r docs/requirements.txt
           python -m sphinx -b html -W docs sphinx-build-output

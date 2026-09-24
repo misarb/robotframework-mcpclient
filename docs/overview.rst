@@ -82,4 +82,5 @@ Next Steps
 - :doc:`installation` — Install the library
 - :doc:`quickstart` — Your first test in 5 minutes
 - :doc:`keywords` — Full keyword reference
+- :doc:`architecture` — How the sync/async bridge works, with diagrams
 - :doc:`troubleshooting` — Common errors and what they mean
