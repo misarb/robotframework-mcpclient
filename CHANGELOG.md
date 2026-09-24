@@ -71,6 +71,28 @@ uses [semantic versioning](https://semver.org/).
   the connection is marked closed immediately and the failure is raised as
   `MCPConnectionError`, so the next keyword on that connection fails fast
   with a clear message instead of repeating the dead call.
+- **`atest/converted_results.robot` failed outright on Robot Framework
+  5.x.** It used `Library ... AS MCPDicts` import aliasing to run two named
+  instances of the library side by side, which doesn't exist before RF 6.0.
+  The suite only ever needed one instance, so the alias was dropped rather
+  than working around it. CI now verifies robotframework 5.0.1, 6.0.2, and
+  7.5 on every push (`robotframework-versions` job), so a future break like
+  this is caught immediately rather than discovered by a user on an older
+  Robot Framework.
+- **The Sphinx documentation build was broken locally** (and only worked on
+  ReadTheDocs, apparently via build-environment differences RTD applies that
+  a bare `sphinx-build` invocation doesn't): `index.rst` used
+  `.. include:: ../README.md :parser: myst_parser`, but `myst_parser` was
+  neither a registered Sphinx extension nor a valid docutils parser path,
+  and `docs/requirements.txt` never declared it as a dependency at all.
+  Replaced the raw README include (which also produced RST parsing errors
+  on Markdown syntax like `---` once the parser issue was worked around)
+  with a plain summary and a link to the README on GitHub — `overview.rst`
+  already covers the same ground natively in RST. Also fixed a stale
+  `release = "0.1.0"` in `conf.py` and a `display_version` theme option
+  `sphinx-rtd-theme` no longer supports. CI now builds the docs with
+  warnings promoted to errors (`docs` job) on every push, so a break like
+  this is caught before it reaches ReadTheDocs.
 
 ### Notes
 

@@ -104,3 +104,4 @@ You should see:
     2 tests, 2 passed
 
 Next: Read the :doc:`keywords` reference to explore what the library can do.
+Hit an error along the way? Check :doc:`troubleshooting`.

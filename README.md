@@ -39,7 +39,7 @@ pip install robotframework-mcpclient
 
 **Requirements:** Python 3.10+, Robot Framework 5.0+, mcp 1.0+
 
-**Tested with:** Python 3.10–3.13, Robot Framework 7.5, mcp 2.2.0
+**Tested with:** Python 3.10–3.13, Robot Framework 5.0.1 / 6.0.2 / 7.5, mcp 2.2.0
 
 ## Quick test
 

@@ -47,6 +47,49 @@ jobs:
           name: robot-results-${{ matrix.os }}-py${{ matrix.python-version }}
           path: results/
 
+  robotframework-versions:
+    # Separate from the main matrix: the library declares robotframework>=5.0
+    # in pyproject.toml, so that claim needs checking against the oldest and
+    # a middle supported version, not just whatever the main matrix happens
+    # to install. One OS, one Python version — this job exists to catch a
+    # Robot Framework compatibility break, not a Python or OS one.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        robotframework-version: ["5.0.1", "6.0.2", "7.5"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . --no-deps
+          pip install "robotframework==${{ matrix.robotframework-version }}" mcp jsonschema pytest
+
+      - name: Unit tests
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+        run: python -m pytest tests/ -v
+
+      - name: Acceptance tests
+        shell: bash
+        run: |
+          PYTHON_PATH=$(python -c "import sys; print(sys.executable)")
+          python -m robot --variable INTERPRETER:$PYTHON_PATH --outputdir results-rf${{ matrix.robotframework-version }} atest/
+
+      - name: Upload Robot results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: robot-results-rf${{ matrix.robotframework-version }}
+          path: results-rf${{ matrix.robotframework-version }}/
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -72,3 +115,12 @@ jobs:
         with:
           name: keyword-documentation
           path: docs/MCPClientLibrary.html
+
+      # Builds the same Sphinx docs ReadTheDocs builds, with warnings
+      # promoted to errors — catches a broken build (bad directive, missing
+      # extension dependency, dangling toctree entry) here instead of it
+      # only surfacing as a stale or broken page on the live site.
+      - name: Build Sphinx documentation
+        run: |
+          pip install -r docs/requirements.txt
+          python -m sphinx -b html -W docs sphinx-build-output

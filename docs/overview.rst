@@ -82,4 +82,4 @@ Next Steps
 - :doc:`installation` — Install the library
 - :doc:`quickstart` — Your first test in 5 minutes
 - :doc:`keywords` — Full keyword reference
-- :doc:`examples` — Real-world test examples
+- :doc:`troubleshooting` — Common errors and what they mean

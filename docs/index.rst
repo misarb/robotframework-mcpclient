@@ -11,7 +11,7 @@ Robot Framework library for testing MCP (Model Context Protocol) servers.
    installation
    quickstart
    keywords
-   examples
+   troubleshooting
 
 Overview
 --------
@@ -19,10 +19,9 @@ Overview
 MCPClientLibrary lets you write Robot Framework tests for MCP servers without async code.
 Start the server, call its tools, resources, and prompts, and assert on what it returns.
 
-See the `GitHub repository <https://github.com/misarb/robotframework-mcpclient>`_ for source code.
-
-.. include:: ../README.md
-   :parser: myst_parser
+See :doc:`overview` for the full picture, or the
+`GitHub repository <https://github.com/misarb/robotframework-mcpclient>`_ and its
+`README <https://github.com/misarb/robotframework-mcpclient#readme>`_ for source code.
 
 Keyword Documentation
 ---------------------
