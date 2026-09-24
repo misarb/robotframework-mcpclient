@@ -370,13 +370,20 @@ truncated. Run with `--loglevel DEBUG` for the full detail.
 
 ## Keyword documentation
 
-View the full keyword reference: [MCPClientLibrary.html](https://robotframework-mcpclient.readthedocs.io/_static/MCPClientLibrary.html)
+Browse the keywords by category, with examples:
+[robotframework-mcpclient.readthedocs.io/en/latest/keywords.html](https://robotframework-mcpclient.readthedocs.io/en/latest/keywords.html)
 
-Or generate it locally:
+Or view the full Libdoc reference — every keyword, every argument:
+[MCPClientLibrary.html](https://robotframework-mcpclient.readthedocs.io/_static/MCPClientLibrary.html)
+
+Generate the Libdoc reference locally:
 
 ```bash
 python -m robot.libdoc MCPClientLibrary docs/MCPClientLibrary.html
 ```
+
+How the sync/async bridge works under the hood, with diagrams:
+[readthedocs.io/en/latest/architecture.html](https://robotframework-mcpclient.readthedocs.io/en/latest/architecture.html)
 
 ## Transport support
 
