@@ -36,6 +36,18 @@ uses [semantic versioning](https://semver.org/).
   `MCPValidationError` (a result didn't match what the server declared).
   All remain `MCPLibraryError` subclasses, so existing code that catches the
   base class, or matches on message text, is unaffected.
+- **Resource subscriptions**: `Subscribe To Resource` and
+  `Unsubscribe From Resource` ask the server for change notifications;
+  `Get Resource Update Notifications`, `Clear Resource Update
+  Notifications`, and `Resource Should Have Been Updated` read and assert
+  on what arrived.
+- **Client callbacks**: `Set Client Roots` declares the roots the client
+  answers `roots/list` with. `Set Sampling Response` and
+  `Set Elicitation Response` script the client's side of a server's
+  sampling (agentic tool completion) or elicitation (asking the user a
+  question) request — each consumed once, by the next matching request; a
+  request with nothing queued gets a clear error rather than hanging or
+  reusing a stale answer.
 
 ### Fixed
 
@@ -45,6 +57,19 @@ uses [semantic versioning](https://semver.org/).
 - CI: acceptance tests now resolve the Python interpreter with
   `sys.executable` instead of assuming `python` is on PATH, and run under an
   explicit `bash` shell so the fix works on Windows runners too.
+
+### Notes
+
+- `resources/subscribe`/`resources/unsubscribe` are deprecated in the MCP
+  spec (removed as of 2026-07-28, in favour of the SDK's higher-level
+  `Client.listen()`) but still accepted by `ClientSession` in the mcp SDK
+  version this library targets, and still widely implemented by servers.
+  `Subscribe To Resource`/`Unsubscribe From Resource` suppress the resulting
+  deprecation warning and keep working; a future major version may migrate
+  the connection layer to `Client` if `ClientSession` drops the methods
+  entirely.
+- `Set Logging Level`'s underlying `session.set_logging_level` is
+  similarly deprecated (SEP-2577) but functional; same treatment.
 
 ## [0.1.0] — 2026-09-16
 

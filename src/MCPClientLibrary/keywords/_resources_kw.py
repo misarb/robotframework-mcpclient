@@ -1,5 +1,7 @@
 """Keywords that list and read the resources a server exposes."""
 
+import warnings
+
 from robot.api.deco import keyword
 
 from .. import _convert as convert
@@ -74,3 +76,63 @@ class ResourceKeywords:
         )
         log_response("resources/templates/list", result)
         return self._maybe_convert(list(result.resource_templates))
+
+    @keyword("Subscribe To Resource")
+    def subscribe_to_resource(self, uri, timeout=None):
+        """Asks the server to notify the client when this resource changes.
+
+        Updates arrive as ``notifications/resources/updated`` and are
+        collected by `Get Resource Update Notifications`. A server that does
+        not declare the ``resources.subscribe`` capability will reject this
+        with a protocol error.
+
+        The underlying ``resources/subscribe`` request is deprecated in the
+        MCP spec (removed as of 2026-07-28, in favour of the SDK's higher-level
+        ``Client.listen()``) but still accepted by ``ClientSession`` in this
+        SDK version, and still widely implemented by servers. This keyword
+        suppresses the resulting deprecation warning and keeps working
+        against any server that still supports it.
+
+        Example:
+        | Subscribe To Resource | data://counter |
+        | Call Tool | increment_counter |
+        | Resource Should Have Been Updated | data://counter |
+        """
+        log_request("resources/subscribe", uri=uri)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            self._connection.call(
+                lambda s: s.subscribe_resource(uri), timeout=self._timeout(timeout)
+            )
+
+    @keyword("Unsubscribe From Resource")
+    def unsubscribe_from_resource(self, uri, timeout=None):
+        """Cancels a subscription made with `Subscribe To Resource`.
+
+        See `Subscribe To Resource` for a note on this method's deprecation.
+        """
+        log_request("resources/unsubscribe", uri=uri)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            self._connection.call(
+                lambda s: s.unsubscribe_resource(uri), timeout=self._timeout(timeout)
+            )
+
+    @keyword("Get Resource Update Notifications")
+    def get_resource_update_notifications(self):
+        """Returns the URIs of every resource update notification received so far.
+
+        A URI appears once per notification, so a resource updated three
+        times appears three times. Accumulates for the life of the
+        connection — see `Clear Resource Update Notifications` to reset.
+
+        Example:
+        | ${updates}= | Get Resource Update Notifications |
+        | Should Contain | ${updates} | data://counter |
+        """
+        return list(self._connection.resource_updates)
+
+    @keyword("Clear Resource Update Notifications")
+    def clear_resource_update_notifications(self):
+        """Discards every resource update notification collected so far."""
+        self._connection.resource_updates.clear()

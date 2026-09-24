@@ -1,7 +1,7 @@
 Keywords
 ========
 
-MCPClientLibrary exposes 53 keywords across five categories.
+MCPClientLibrary exposes 61 keywords across five categories.
 
 Full reference: `MCPClientLibrary.html <_static/MCPClientLibrary.html>`_
 
@@ -368,6 +368,73 @@ filtered to one level.
 
     Server Should Have Logged        unknown city    level=warning
     Server Should Not Have Logged    Traceback
+
+Resource Subscriptions
+------------------------
+
+**Subscribe To Resource** / **Unsubscribe From Resource** — Ask the server to
+notify the client when a resource changes.
+
+.. code-block:: robotframework
+
+    Subscribe To Resource    data://counter
+    Call Tool    bump_counter
+    Resource Should Have Been Updated    data://counter
+
+**Get Resource Update Notifications** / **Clear Resource Update
+Notifications** — Read or discard the URIs of every update notification
+received.
+
+.. code-block:: robotframework
+
+    ${updates}=    Get Resource Update Notifications
+    Should Contain    ${updates}    data://counter
+
+**Resource Should Have Been Updated** — Fails unless an update notification
+for the given URI was received.
+
+Client Callbacks
+------------------
+
+MCP lets a server call back into the client mid-tool-call: to ask what
+directories/URIs it exposes (roots), to have the client's LLM complete a
+message (sampling — the pattern behind an agentic tool), or to ask the user
+a question (elicitation). These keywords script the client's side of that
+conversation so the server-side tool can be tested without a real LLM or a
+real user watching.
+
+**Set Client Roots** — Declares the roots the client answers ``roots/list``
+with, from then on for the connection.
+
+.. code-block:: robotframework
+
+    ${root}=    Create Dictionary    uri=file:///workspace    name=Project
+    Set Client Roots    ${root}
+    ${result}=    Call Tool    list_project_files
+
+Call with no arguments to reset to an empty list.
+
+**Set Sampling Response** — Queues the text the client returns for the
+server's *next* sampling request. Consumed once.
+
+.. code-block:: robotframework
+
+    Set Sampling Response    42
+    ${result}=    Call Tool    agentic_tool    query=what is 6 times 7
+
+**Set Elicitation Response** — Queues the answer the client gives to the
+server's *next* elicitation request: ``accept``, ``decline``, or ``cancel``,
+with a ``content`` dictionary for ``accept``. Consumed once.
+
+.. code-block:: robotframework
+
+    ${answer}=    Create Dictionary    name=Alice
+    Set Elicitation Response    accept    ${answer}
+    ${result}=    Call Tool    tool_that_asks_for_a_name
+
+A server that asks and finds nothing queued gets a clear error back
+explaining what to call first — not a hang, and not a stale answer from an
+earlier test.
 
 Common Options
 --------------

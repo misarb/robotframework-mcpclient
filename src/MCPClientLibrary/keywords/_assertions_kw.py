@@ -289,6 +289,26 @@ class AssertionKeywords:
                 f"It contains: {actual or '(no text)'}"
             )
 
+    @keyword("Resource Should Have Been Updated")
+    def resource_should_have_been_updated(self, uri, msg=None):
+        """Fails unless an update notification for this URI has been received.
+
+        Requires `Subscribe To Resource` first — a resource the client never
+        subscribed to sends no notifications to check.
+
+        Example:
+        | Subscribe To Resource | data://counter |
+        | Call Tool | increment_counter |
+        | Resource Should Have Been Updated | data://counter |
+        """
+        updates = self.get_resource_update_notifications()
+        if uri not in updates:
+            raise AssertionError(
+                msg
+                or f"No update notification was received for '{uri}'. "
+                f"Received updates for: {', '.join(sorted(set(updates))) or 'nothing'}."
+            )
+
     # -- prompts ----------------------------------------------------------
 
     @keyword("Prompt Should Exist")

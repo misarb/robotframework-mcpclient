@@ -189,3 +189,62 @@ class ConnectionKeywords:
         the log messages its own actions caused.
         """
         self._connection.log_messages.clear()
+
+    @keyword("Set Client Roots")
+    def set_client_roots(self, *roots):
+        """Sets the directories/URIs the client exposes to the server as its roots.
+
+        Each root is a dictionary with ``uri`` (required) and ``name``
+        (optional). Answers the server's ``roots/list`` request from then on,
+        for this connection; call again to change them mid-suite.
+
+        MCP roots are typically file:// URIs marking a project's boundaries,
+        so a server knows what it's allowed to touch — a test simulates that
+        boundary without a real filesystem layout.
+
+        Example:
+        | ${root}= | Create Dictionary | uri=file:///workspace | name=Project |
+        | Set Client Roots | ${root} |
+        | Call Tool | list_project_files |
+        """
+        self._connection.roots = [dict(root) for root in roots]
+
+    @keyword("Set Sampling Response")
+    def set_sampling_response(self, text, model=None):
+        """Queues the text the client returns for the server's next sampling request.
+
+        MCP sampling lets a server ask the client's LLM to complete a
+        message — the pattern behind an agentic tool. This keyword scripts
+        what "the LLM" says back, so that tool can be tested without a real
+        model: consumed once, by the next ``sampling/createMessage`` request
+        this connection receives, then cleared.
+
+        If the server asks to sample and nothing has been queued, the client
+        answers with an error explaining that, rather than silently reusing
+        a stale response or hanging.
+
+        Example:
+        | Set Sampling Response | 42 |
+        | ${result}= | Call Tool | agentic_tool | query=what is 6 times 7 |
+        """
+        self._connection.pending_sampling_response = {"text": text, "model": model}
+
+    @keyword("Set Elicitation Response")
+    def set_elicitation_response(self, action, content=None):
+        """Queues the answer the client gives to the server's next elicitation request.
+
+        MCP elicitation lets a server pause mid-call to ask the user for more
+        information. ``action`` is ``accept``, ``decline``, or ``cancel``;
+        ``content`` is a dictionary of the requested fields, given when
+        ``action`` is ``accept``. Consumed once, same as
+        `Set Sampling Response`.
+
+        Example:
+        | ${answer}= | Create Dictionary | name=Alice |
+        | Set Elicitation Response | accept | ${answer} |
+        | ${result}= | Call Tool | tool_that_asks_for_a_name |
+        """
+        self._connection.pending_elicitation_response = {
+            "action": action,
+            "content": dict(content) if content else None,
+        }

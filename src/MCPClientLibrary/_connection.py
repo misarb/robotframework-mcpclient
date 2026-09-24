@@ -9,7 +9,7 @@ import asyncio
 import tempfile
 from contextlib import asynccontextmanager
 
-from mcp import ClientSession, StdioServerParameters, stdio_client
+from mcp import ClientSession, StdioServerParameters, stdio_client, types
 from mcp.client.streamable_http import create_mcp_http_client, streamable_http_client
 from mcp.shared.exceptions import MCPError as SdkMCPError
 
@@ -43,6 +43,10 @@ class MCPConnection:
         self.capabilities = None
         self.log_messages = []
         self.last_call_progress = []
+        self.resource_updates = []
+        self.roots = []
+        self.pending_sampling_response = None
+        self.pending_elicitation_response = None
 
     # -- transport seam ---------------------------------------------------
     # Every transport returns the same (read, write) stream pair, so adding
@@ -99,11 +103,74 @@ class MCPConnection:
     async def _on_log_message(self, params):
         """Records a ``notifications/message`` the server sends during the session.
 
-        Called on the bridge's loop thread; ``log_messages`` is a plain list,
-        which is safe to append to and read from another thread under the
-        GIL — there is no compound read-modify-write across the two sides.
+        Called on the bridge's loop thread; every ``_on_*`` callback below
+        follows the same rule: the list or attribute it touches is read and
+        written on both threads, which is safe under the GIL because there is
+        no compound read-modify-write shared across the two sides — a keyword
+        either reads a fully-formed value or replaces it outright.
         """
         self.log_messages.append(params)
+
+    async def _on_message(self, message):
+        """Routes every other server notification; picks out resource updates.
+
+        ``message_handler`` tees every notification the session surfaces
+        (``logging_callback`` also fires for log messages, separately), so
+        this is the seam for anything that isn't already handled elsewhere —
+        currently just ``notifications/resources/updated``.
+        """
+        if isinstance(message, types.ResourceUpdatedNotification):
+            self.resource_updates.append(str(message.params.uri))
+
+    async def _on_list_roots(self, context):
+        """Answers ``roots/list`` with whatever `Set Client Roots` configured."""
+        roots = [types.Root(uri=r["uri"], name=r.get("name")) for r in self.roots]
+        return types.ListRootsResult(roots=roots)
+
+    async def _on_sampling(self, context, params):
+        """Answers ``sampling/createMessage`` with the one pending canned response.
+
+        Consumed once: cleared after answering, so a second sampling request
+        in the same call with nothing newly queued gets a clear error instead
+        of silently reusing a stale answer.
+        """
+        response = self.pending_sampling_response
+        self.pending_sampling_response = None
+        if response is None:
+            return types.ErrorData(
+                code=-32603,
+                message=(
+                    "The server asked the client to sample a message, but no "
+                    "response was queued. Use 'Set Sampling Response' before "
+                    "the call that triggers it."
+                ),
+            )
+        return types.CreateMessageResult(
+            role="assistant",
+            content=types.TextContent(type="text", text=response["text"]),
+            model=response.get("model") or "test-client",
+        )
+
+    async def _on_elicitation(self, context, params):
+        """Answers ``elicitation/create`` with the one pending canned response.
+
+        Consumed once, same as sampling — see `_on_sampling`.
+        """
+        response = self.pending_elicitation_response
+        self.pending_elicitation_response = None
+        if response is None:
+            return types.ErrorData(
+                code=-32603,
+                message=(
+                    "The server asked the client to elicit input, but no "
+                    "response was queued. Use 'Set Elicitation Response' "
+                    "before the call that triggers it."
+                ),
+            )
+        return types.ElicitResult(
+            action=response["action"],
+            content=response.get("content"),
+        )
 
     def _describe_failure(self, failure):
         """A failure message that includes the server's own stderr, if any."""
@@ -144,7 +211,13 @@ class MCPConnection:
             async with self._open_transport() as (read, write):
                 try:
                     async with ClientSession(
-                        read, write, logging_callback=self._on_log_message
+                        read,
+                        write,
+                        logging_callback=self._on_log_message,
+                        message_handler=self._on_message,
+                        list_roots_callback=self._on_list_roots,
+                        sampling_callback=self._on_sampling,
+                        elicitation_callback=self._on_elicitation,
                     ) as session:
                         result = await session.initialize()
                         self._session = session

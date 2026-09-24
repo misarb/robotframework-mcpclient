@@ -183,6 +183,18 @@ Should Contain                ${text}    get_weather
 `List Resource Templates`, `Resource Should Exist`, `Resource Should Not Exist`,
 `Resource Should Contain Text`.
 
+### Resource subscriptions
+
+```robotframework
+Subscribe To Resource    data://counter
+Call Tool    bump_counter
+Resource Should Have Been Updated    data://counter
+```
+
+`Subscribe To Resource`, `Unsubscribe From Resource`,
+`Get Resource Update Notifications`, `Clear Resource Update Notifications`,
+`Resource Should Have Been Updated`.
+
 ### Prompts
 
 ```robotframework
@@ -194,6 +206,35 @@ Should Contain                    ${text}    Berlin
 
 `List Prompts`, `Get Prompt Names`, `Get Prompt`, `Get Prompt Text`,
 `Prompt Should Exist`, `Prompt Should Not Exist`, `Prompt Should Require Argument`.
+
+### Client callbacks: roots, sampling, elicitation
+
+MCP lets a server call back into the client mid-tool-call — to ask what
+directories/URIs the client exposes (roots), to have the client's LLM
+complete a message (sampling — the pattern behind an agentic tool), or to
+ask the user a question (elicitation). These keywords script the client's
+side of that conversation, so a tool that depends on it can be tested
+without a real LLM or a real user:
+
+```robotframework
+${root}=    Create Dictionary    uri=file:///workspace    name=Project
+Set Client Roots    ${root}
+
+Set Sampling Response    42
+${result}=    Call Tool    agentic_tool    query=what is 6 times 7
+
+${answer}=    Create Dictionary    name=Alice
+Set Elicitation Response    accept    ${answer}
+${result}=    Call Tool    tool_that_asks_for_a_name
+```
+
+`Set Client Roots`, `Set Sampling Response`, `Set Elicitation Response`.
+
+Sampling and elicitation responses are consumed once, by the next matching
+request the server sends — set a fresh one before each call that triggers
+one. If the server asks and nothing is queued, the client answers with a
+clear error naming which keyword to call, rather than hanging or reusing a
+stale answer from an earlier test.
 
 ## Two kinds of failure, and why it matters
 
