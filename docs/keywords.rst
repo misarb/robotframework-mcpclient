@@ -88,6 +88,12 @@ Returns: Index of the previous connection
     ${caps}=    Get MCP Server Capabilities
     Should Not Be Equal    ${caps.tools}    ${None}
 
+**MCP Server Should Be Connected** — Fails unless there is an open session.
+
+.. code-block:: robotframework
+
+    MCP Server Should Be Connected
+
 Tools
 -----
 
@@ -255,6 +261,12 @@ Resources
 
     ${text}=    Get Resource Text    docs://greet/usage
     Should Contain    ${text}    greet
+
+**List Resource Templates** — URI templates the server exposes for dynamic resources.
+
+.. code-block:: robotframework
+
+    ${templates}=    List Resource Templates
 
 Resource Assertions
 -------------------
